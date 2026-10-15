@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Quadcopter thrust calculator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main>
+    <header class="page-head">
+      <p class="eyebrow">Four motors · static thrust</p>
+      <h1>Quadcopter thrust calculator</h1>
+      <p class="lede">Estimate thrust from motor KV, pack voltage, and propeller size, or enter a measured full-throttle figure. The readout is total thrust, thrust-to-weight, hover throttle, and spare payload.</p>
+    </header>
+
+    <div class="layout">
+      <form id="calc-form" autocomplete="off" novalidate>
+        <div class="tabs" role="tablist" aria-label="Thrust source">
+          <button type="button" id="tab-estimate" class="tab" role="tab" data-mode="estimate" aria-selected="true" aria-controls="panel-estimate">Estimate</button>
+          <button type="button" id="tab-measured" class="tab" role="tab" data-mode="measured" aria-selected="false" aria-controls="panel-measured" tabindex="-1">Measured</button>
+        </div>
+
+        <div class="pair">
+          <label class="field">
+            <span>All-up weight</span>
+            <input id="weight" type="number" min="0" step="1" inputmode="decimal" value="700">
+            <span class="unit">grams, with battery</span>
+          </label>
+          <label class="field">
+            <span>Motors</span>
+            <input id="motors" type="number" min="1" step="1" inputmode="numeric" value="4">
+            <span class="unit">a quadcopter uses 4</span>
+          </label>
+        </div>
+
+        <div id="panel-estimate" role="tabpanel" aria-labelledby="tab-estimate">
+          <fieldset>
+            <legend>Battery</legend>
+            <label class="field" id="cell-field">
+              <span>Cell count</span>
+              <select id="cells">
+                <option value="1">1S</option>
+                <option value="2">2S</option>
+                <option value="3">3S</option>
+                <option value="4" selected>4S</option>
+                <option value="5">5S</option>
+                <option value="6">6S</option>
+                <option value="7">7S</option>
+                <option value="8">8S</option>
+              </select>
+            </label>
+            <div class="choice-row" role="radiogroup" aria-label="Voltage basis">
+              <label><input type="radio" name="voltage-basis" value="4.2" checked> Full 4.20 V</label>
+              <label><input type="radio" name="voltage-basis" value="3.7"> Nominal 3.70 V</label>
+              <label><input type="radio" name="voltage-basis" value="3.85"> Storage 3.85 V</label>
+              <label><input type="radio" name="voltage-basis" value="custom"> Custom pack voltage</label>
+            </div>
+            <label class="field" id="custom-voltage-field" hidden>
+              <span>Pack voltage</span>
+              <input id="custom-voltage" type="number" min="0" step="0.01" inputmode="decimal" placeholder="16.8">
+              <span class="unit">volts for the whole pack</span>
+            </label>
+            <p class="hint" id="voltage-hint">Using 16.80 V. Thrust falls as the pack sags.</p>
+          </fieldset>
+
+          <label class="field">
+            <span>Motor KV</span>
+            <input id="kv" type="number" min="0" step="1" inputmode="decimal" value="2450">
+            <span class="unit">unloaded rpm per volt</span>
+          </label>
+
+          <div class="pair">
+            <label class="field">
+              <span>Propeller diameter</span>
+              <input id="diameter" type="number" min="0" step="0.1" inputmode="decimal" value="5">
+              <span class="unit">inches</span>
+            </label>
+            <label class="field">
+              <span>Propeller pitch</span>
+              <input id="pitch" type="number" min="0" step="0.1" inputmode="decimal" value="4.3">
+              <span class="unit">inches</span>
+            </label>
+          </div>
+
+          <label class="field">
+            <span class="label-row"><span>Load factor</span> <span id="load-readout" class="value-chip">0.75</span></span>
+            <input id="load-factor" type="range" min="0.4" max="1" step="0.01" value="0.75">
+            <span class="unit">share of KV × voltage the prop actually holds</span>
+          </label>
+
+          <label class="field">
+            <span>Tachometer RPM</span>
+            <input id="rpm-override" type="number" min="0" step="1" inputmode="decimal" placeholder="Blank uses KV × voltage × load factor">
+            <span class="unit">optional full-throttle rpm</span>
+          </label>
+
+          <div class="pair">
+            <label class="field">
+              <span>Thrust-coefficient scale</span>
+              <input id="ct-scale" type="number" min="0" step="0.01" inputmode="decimal" value="0.16">
+              <span class="unit">C_T = scale × pitch / diameter</span>
+            </label>
+            <label class="field">
+              <span>Altitude</span>
+              <input id="altitude" type="number" step="1" inputmode="decimal" value="0">
+              <span class="unit">meters, sea level is 0</span>
+            </label>
+          </div>
+
+          <p class="assumptions">Loaded RPM is KV × pack voltage × load factor, unless you enter a tachometer RPM. Thrust is T = C_T × ρ × n² × D⁴. Hover throttle assumes thrust scales with the square of throttle. C_T is an approximation; a thrust stand is more accurate. Thrust falls as the pack voltage sags.</p>
+        </div>
+
+        <div id="panel-measured" role="tabpanel" aria-labelledby="tab-measured" hidden>
+          <label class="field">
+            <span>Full-throttle thrust per motor</span>
+            <input id="thrust" type="number" min="0" step="1" inputmode="decimal" value="1100">
+            <span class="unit">grams, from a data sheet or thrust stand</span>
+          </label>
+          <p class="assumptions">This uses your figure as full-throttle static thrust per motor. Hover throttle assumes thrust scales with the square of throttle.</p>
+        </div>
+
+        <div class="examples">
+          <button type="button" id="example-estimate">Load 5-inch example</button>
+          <button type="button" id="example-measured">Load measured example</button>
+        </div>
+      </form>
+
+      <section id="readout" class="readout is-empty" aria-live="polite">
+        <p class="kicker" id="result-kicker">Thrust-to-weight</p>
+        <p class="twr" id="result-twr">—</p>
+        <p class="band" id="result-band"></p>
+        <p class="sentence" id="result-sentence">Enter a positive all-up weight and thrust.</p>
+        <dl class="stats" id="result-stats"></dl>
+        <p class="model" id="result-model"></p>
+        <p class="footnote" id="result-note"></p>
+      </section>
+    </div>
+  </main>
+  <script src="calculator.js"></script>
+</body>
+</html>
